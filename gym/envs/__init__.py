@@ -683,3 +683,46 @@ register(
     entry_point='gym.envs.unittest:MemorizeDigits',
     reward_threshold=20,
     )
+
+
+
+# Multi Agent
+# ----------------------------------------
+
+# Social Dilemma
+# TODO set values of max_episode_steps and reward_threshold
+
+register(
+    id='CoinGameVec-v0',
+    entry_point='gym.envs.multi_agent:CoinGameVec',
+    max_episode_steps=50,
+    reward_threshold=-3.75,
+)
+
+register(
+    id='IteratedPrisonersDilemma-v0',
+    entry_point='gym.envs.multi_agent:IteratedPrisonersDilemma',
+    max_episode_steps=50,
+    reward_threshold=-3.75,
+)
+
+register(
+    id='IteratedMatchingPennies-v0',
+    entry_point='gym.envs.multi_agent:IteratedMatchingPennies',
+    max_episode_steps=50,
+    reward_threshold=-3.75,
+)
+
+register(
+    id='IteratedStagHunt-v0',
+    entry_point='gym.envs.multi_agent:IteratedStagHunt',
+    max_episode_steps=50,
+    reward_threshold=-3.75,
+)
+
+register(
+    id='IteratedChicken-v0',
+    entry_point='gym.envs.multi_agent:IteratedChicken',
+    max_episode_steps=50,
+    reward_threshold=-3.75,
+)
