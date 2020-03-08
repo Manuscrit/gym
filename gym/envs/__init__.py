@@ -693,8 +693,8 @@ register(
 # TODO set values of max_episode_steps and reward_threshold
 
 register(
-    id='CoinGameVec-v0',
-    entry_point='gym.envs.multi_agent:CoinGameVec',
+    id='CoinGame-v0',
+    entry_point='gym.envs.multi_agent:CoinGame',
     max_episode_steps=50,
     reward_threshold=-3.75,
 )
