@@ -68,14 +68,14 @@ class MatrixSocialDilemma(gym.Env):
         self.cd_count.append(ac0 == 0 and ac1 == 1)
         self.dc_count.append(ac0 == 1 and ac1 == 0)
 
-        self.cc_frac = (sum(list(copy.deepcopy(self.cc_count))) /
-                                   (len(list(copy.deepcopy(self.cc_count))) + 1e-6))
-        self.dd_frac = (sum(list(copy.deepcopy(self.dd_count))) /
-                                       (len(list(copy.deepcopy(self.dd_count))) + 1e-6))
-        self.cd_frac = (sum(list(copy.deepcopy(self.cd_count))) /
-                                       (len(list(copy.deepcopy(self.cd_count))) + 1e-6))
-        self.dc_frac = (sum(list(copy.deepcopy(self.dc_count))) /
-                                       (len(list(copy.deepcopy(self.dc_count))) + 1e-6))
+        self.cc_frac = (sum(list(self.cc_count)) /
+                                   (len(list(self.cc_count)) + 1e-6))
+        self.dd_frac = (sum(list(self.dd_count)) /
+                                       (len(list(self.dd_count)) + 1e-6))
+        self.cd_frac = (sum(list(self.cd_count)) /
+                                       (len(list(self.cd_count)) + 1e-6))
+        self.dc_frac = (sum(list(self.dc_count)) /
+                                       (len(list(self.dc_count)) + 1e-6))
 
         info = {"extra_info_to_log": {
             "cc": self.cc_frac,

@@ -29,7 +29,7 @@ class CoinGame(gym.Env):
     VIEWPORT_W = 400
     VIEWPORT_H = 400
 
-    def __init__(self, max_steps=10, grid_size=3):
+    def __init__(self, max_steps=20, grid_size=3):
 
         assert self.NUM_AGENTS == 2
 
@@ -60,7 +60,7 @@ class CoinGame(gym.Env):
         self.step_count = None
 
         self.np_random = None
-        self.seed()
+        # self.seed()
         self.viewer = None
         player_scale = 0.3
         self.PLAYER_SHAPE = [[[el[0] * player_scale,
@@ -76,9 +76,16 @@ class CoinGame(gym.Env):
                                y_max - el[1]] for el in poly] for poly in self.PLAYER_SHAPE]
 
         self.coin_picking_speed = -1
-        self.queue_picking_speed = deque(maxlen=1000)
-        self.queue_picking_own = deque(maxlen=1000)
-        self.good_actions = [deque(maxlen=1000) for i in range(self.NUM_AGENTS)]
+        self.queue_size = max_steps #200
+        self.n_steps_in_queue = 1e-6
+        self.n_steps_in_queue_picking_own = 1e-6
+        self.queue_picking_speed = deque(maxlen=self.queue_size)
+        self.queue_picking_own = deque(maxlen=self.queue_size)
+        self.good_actions = [deque(maxlen=self.queue_size) for i in range(self.NUM_AGENTS)]
+        self.coin_picking_speed = np.nan
+        self.coin_picking_own_fract = np.nan
+        self.good_act_ag0 = np.nan
+        self.good_act_ag1 = np.nan
 
         self.render_every = 100
         self.epi = 0
@@ -86,6 +93,11 @@ class CoinGame(gym.Env):
     def seed(self, seed=None):
         """Seed the PRNG of this space. """
         self.np_random, seed = seeding.np_random(seed)
+        # self.np_random = np.random.RandomState()
+        # seed = None
+        
+        print("Coin Game SEED", seed)
+        time.sleep(3.0)
         return [seed]
 
     def reset(self):
@@ -96,10 +108,8 @@ class CoinGame(gym.Env):
         self.red_coin = self.np_random.randint(2, size=1)
 
         # agents positions
-        self.red_pos = self.np_random.randint(
-            self.grid_size, size=(2,))
-        self.blue_pos = self.np_random.randint(
-            self.grid_size, size=(2,))
+        self.red_pos = self.np_random.randint(self.grid_size, size=(2,))
+        self.blue_pos = self.np_random.randint(self.grid_size, size=(2,))
         # Make sure agents don't overlap
         while self._same_pos(self.red_pos, self.blue_pos):
             self.blue_pos = self.np_random.randint(self.grid_size, size=2)
@@ -119,11 +129,9 @@ class CoinGame(gym.Env):
         # Make sure coin has a different position than the agents
         success = 0
         while success < 2:
-            self.coin_pos = self.np_random.randint(self.grid_size, size=(2))
-            success = 1 - self._same_pos(self.red_pos,
-                                         self.coin_pos)
-            success += 1 - self._same_pos(self.blue_pos,
-                                          self.coin_pos)
+            self.coin_pos = self.np_random.randint(self.grid_size, size=2)
+            success = 1 - self._same_pos(self.red_pos,self.coin_pos)
+            success += 1 - self._same_pos(self.blue_pos,self.coin_pos)
 
     def _same_pos(self, x, y):
         return (x == y).all()
@@ -145,6 +153,8 @@ class CoinGame(gym.Env):
         # print(observation)
         return observation
 
+    # import line_profiler
+    # @profile
     def step(self, actions):
         ac0, ac1 = actions
         ac0, ac1 = int(ac0), int(ac1)
@@ -186,11 +196,21 @@ class CoinGame(gym.Env):
 
         if generate:
             if (self.red_coin and reward_red > 0) or (not self.red_coin and reward_blue > 0):
+                # Picked own
                 self.queue_picking_own.append(True)
+            elif (self.red_coin and reward_red == -1) or (not self.red_coin and reward_blue == -1):
+                # Picked own but opponent picked too
+                self.queue_picking_own.append(True)
+                self.queue_picking_own.append(False)
+                if self.n_steps_in_queue_picking_own < self.queue_size:
+                    self.n_steps_in_queue_picking_own += 1
             else:
                 self.queue_picking_own.append(False)
-
             self._generate_coin()
+        if self.n_steps_in_queue < self.queue_size:
+            self.n_steps_in_queue += 1
+        if self.n_steps_in_queue_picking_own < self.queue_size:
+            self.n_steps_in_queue_picking_own += 1
 
         self.queue_picking_speed.append(generate)
 
@@ -199,18 +219,12 @@ class CoinGame(gym.Env):
         done = (self.step_count == self.max_steps)
         self.observation = self._generate_observation()
 
-
         # Log extra info
-
-        # TODO is copy necessary ?
-        self.coin_picking_speed = round(float(sum(list(copy.deepcopy(self.queue_picking_speed))) /
-                                              (len(list(copy.deepcopy(self.queue_picking_speed))) + 1e-6)), 2)
-        self.coin_picking_own_fract = round(float(sum(list(copy.deepcopy(self.queue_picking_own))) /
-                                                  (len(list(copy.deepcopy(self.queue_picking_own))) + 1e-6)), 2)
-        self.good_act_ag0 = round(float(sum(list(copy.deepcopy(self.good_actions[0]))) /
-                                              (len(list(copy.deepcopy(self.good_actions[0]))) + 1e-6)), 2)
-        self.good_act_ag1 = round(float(sum(list(copy.deepcopy(self.good_actions[1]))) /
-                                              (len(list(copy.deepcopy(self.good_actions[1]))) + 1e-6)), 2)
+        if done:
+            self.coin_picking_speed = round(float(sum(list(self.queue_picking_speed)) /self.n_steps_in_queue), 2)
+            self.coin_picking_own_fract = round(float(sum(list(self.queue_picking_own)) / self.n_steps_in_queue_picking_own), 2)
+            self.good_act_ag0 = round(float(sum(list(self.good_actions[0])) /self.n_steps_in_queue), 2)
+            self.good_act_ag1 = round(float(sum(list(self.good_actions[1])) /self.n_steps_in_queue), 2)
 
         info = {"extra_info_to_log": {
             "pck_speed": self.coin_picking_speed,
