@@ -3,12 +3,14 @@ Code modified from: https://github.com/alshedivat/lola/tree/master/lola
 """
 # TODO change max_steps values
 
+# from loguru import logger
+from collections import deque
+
 import numpy as np
+
 import gym
 from gym.spaces import Discrete, Tuple
-# from loguru import logger
-import copy
-from collections import deque
+
 
 class MatrixSocialDilemma(gym.Env):
     """
@@ -22,7 +24,7 @@ class MatrixSocialDilemma(gym.Env):
     VIEWPORT_W = 400
     VIEWPORT_H = 400
 
-    def __init__(self, payout_matrix, max_steps_per_epi=1):
+    def __init__(self, payout_matrix, max_steps_per_epi=1, reward_randomness=0.1):
         """
         :arg payout_matrix: numpy 2x2 array. Along dim 0 (rows), action of
         current agent change. Along dim 1 (col), action of the
@@ -31,6 +33,7 @@ class MatrixSocialDilemma(gym.Env):
         """
         self.max_steps_per_epi = max_steps_per_epi
         self.payout_mat = payout_matrix
+        self.reward_randomness = reward_randomness
         self.action_space = Tuple([Discrete(self.NUM_ACTIONS),
                                    Discrete(self.NUM_ACTIONS)])
         self.observation_space = Tuple([Discrete(self.NUM_STATES),
@@ -40,14 +43,15 @@ class MatrixSocialDilemma(gym.Env):
         self.viewer = None
         self.observations = None
 
-        self.cc_count = deque(maxlen=100)
-        self.dd_count = deque(maxlen=100)
-        self.cd_count = deque(maxlen=100)
-        self.dc_count = deque(maxlen=100)
+        self.epsilon = 0
+        self.cc_count = deque(maxlen=max_steps_per_epi)
+        self.dd_count = deque(maxlen=max_steps_per_epi)
+        self.cd_count = deque(maxlen=max_steps_per_epi)
+        self.dc_count = deque(maxlen=max_steps_per_epi)
 
     def reset(self):
         self.step_count = 0
-        self.observations = (self.NUM_STATES-1, self.NUM_STATES-1)
+        self.observations = (self.NUM_STATES - 1, self.NUM_STATES - 1)
 
         # self.observations = self._one_hot_np_arrays(self.observations, n_values=self.NUM_STATES)
         # self.observations = self._np_arrays(self.observations)
@@ -58,7 +62,15 @@ class MatrixSocialDilemma(gym.Env):
         ac0, ac1 = action
         self.step_count += 1
 
-        rewards = (self.payout_mat[ac0][ac1], self.payout_mat[ac1][ac0])
+        # rewards = (self.payout_mat[ac0][ac1], self.payout_mat[ac1][ac0])
+        if self.reward_randomness != 0:
+            rewards = (float(np.random.normal(self.payout_mat[ac0][ac1],
+                                              self.reward_randomness)),
+                       float(np.random.normal(self.payout_mat[ac1][ac0],
+                                              self.reward_randomness)))
+        else:
+            rewards = (self.payout_mat[ac0][ac1], self.payout_mat[ac1][ac0])
+
         self.observations = (ac0 * 2 + ac1, ac1 * 2 + ac0)
         done = (self.step_count == self.max_steps_per_epi)
 
@@ -69,20 +81,20 @@ class MatrixSocialDilemma(gym.Env):
         self.dc_count.append(ac0 == 1 and ac1 == 0)
 
         self.cc_frac = (sum(list(self.cc_count)) /
-                                   (len(list(self.cc_count)) + 1e-6))
+                        (len(list(self.cc_count)) + self.epsilon))
         self.dd_frac = (sum(list(self.dd_count)) /
-                                       (len(list(self.dd_count)) + 1e-6))
+                        (len(list(self.dd_count)) + self.epsilon))
         self.cd_frac = (sum(list(self.cd_count)) /
-                                       (len(list(self.cd_count)) + 1e-6))
+                        (len(list(self.cd_count)) + self.epsilon))
         self.dc_frac = (sum(list(self.dc_count)) /
-                                       (len(list(self.dc_count)) + 1e-6))
+                        (len(list(self.dc_count)) + self.epsilon))
 
         info = {"extra_info_to_log": {
             "cc": self.cc_frac,
             "dd": self.dd_frac,
             "cd": self.cd_frac,
             "dc": self.dc_frac,
-            }
+        }
         }
 
         return self.observations, rewards, done, info
@@ -96,8 +108,8 @@ class MatrixSocialDilemma(gym.Env):
             self.viewer = rendering.Viewer(self.VIEWPORT_W, self.VIEWPORT_H)
             self.viewer.set_bounds(0, self.VIEWPORT_W, 0, self.VIEWPORT_H)
 
-        state_size = [[0,0],[self.VIEWPORT_W//2, 0],
-                      [self.VIEWPORT_W//2, self.VIEWPORT_H//2],[0, self.VIEWPORT_H//2]]
+        state_size = [[0, 0], [self.VIEWPORT_W // 2, 0],
+                      [self.VIEWPORT_W // 2, self.VIEWPORT_H // 2], [0, self.VIEWPORT_H // 2]]
 
         # From one_hot_to_state
         # logger.debug("self.observations {}".format(self.observations))
@@ -110,53 +122,56 @@ class MatrixSocialDilemma(gym.Env):
         if state == 0:
             # C & C
             delta_x = 0
-            delta_y = self.VIEWPORT_H//2
+            delta_y = self.VIEWPORT_H // 2
         elif state == 1:
             # C & D
-            delta_x = self.VIEWPORT_W//2
-            delta_y = self.VIEWPORT_H//2
+            delta_x = self.VIEWPORT_W // 2
+            delta_y = self.VIEWPORT_H // 2
         elif state == 2:
             # D < C
             delta_x = 0
             delta_y = 0
         elif state == 3:
             # D & D
-            delta_x = self.VIEWPORT_W//2
+            delta_x = self.VIEWPORT_W // 2
             delta_y = 0
         elif state == 4:
             delta_x = - self.VIEWPORT_W
             delta_y = - self.VIEWPORT_H
 
         current_agent_pos = state_size
-        current_agent_pos = [ [x + delta_x, y + delta_y] for x,y in current_agent_pos]
-        self.viewer.draw_polygon(current_agent_pos, color=(0,0,0))
+        current_agent_pos = [[x + delta_x, y + delta_y] for x, y in current_agent_pos]
+        self.viewer.draw_polygon(current_agent_pos, color=(0, 0, 0))
         # import time
         # time.sleep(0.5)
-        return self.viewer.render(return_rgb_array = mode=='rgb_array')
+        return self.viewer.render(return_rgb_array=mode == 'rgb_array')
 
     def close(self):
         if self.viewer is not None:
             self.viewer.close()
             self.viewer = None
 
+
 class IteratedMatchingPennies(MatrixSocialDilemma):
     """
     A two-agent vectorized environment for the Matching Pennies game.
     """
-    def __init__(self, max_steps_per_epi=1):
+
+    def __init__(self, max_steps_per_epi=1, reward_randomness=0.1):
         payout_mat = np.array([[1, -1],
                                [-1, 1]])
-        super().__init__(payout_mat, max_steps_per_epi)
+        super().__init__(payout_mat, max_steps_per_epi, reward_randomness)
 
 
 class IteratedPrisonersDilemma(MatrixSocialDilemma):
     """
     A two-agent vectorized environment for the Prisoner's Dilemma game.
     """
-    def __init__(self, max_steps_per_epi=1):
+
+    def __init__(self, max_steps_per_epi=1, reward_randomness=0.1):
         payout_mat = np.array([[-1., -3],
                                [0., -2.]])
-        super().__init__(payout_mat, max_steps_per_epi)
+        super().__init__(payout_mat, max_steps_per_epi, reward_randomness)
         self.NAME = "IPD"
 
 
@@ -164,19 +179,19 @@ class IteratedStagHunt(MatrixSocialDilemma):
     """
     A two-agent vectorized environment for the Stag Hunt game.
     """
-    def __init__(self, max_steps_per_epi=1):
+
+    def __init__(self, max_steps_per_epi=1, reward_randomness=0.1):
         payout_mat = np.array([[3, 0],
                                [2, 1]])
-        super().__init__(payout_mat, max_steps_per_epi)
+        super().__init__(payout_mat, max_steps_per_epi, reward_randomness)
 
 
 class IteratedChicken(MatrixSocialDilemma):
     """
     A two-agent vectorized environment for the Chicken game.
     """
-    def __init__(self, max_steps_per_epi=1):
+
+    def __init__(self, max_steps_per_epi=1, reward_randomness=0.1):
         payout_mat = np.array([[0, -1],
                                [1, -10]])
-        super().__init__(payout_mat, max_steps_per_epi)
-
-
+        super().__init__(payout_mat, max_steps_per_epi, reward_randomness)
