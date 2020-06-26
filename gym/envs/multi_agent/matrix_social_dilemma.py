@@ -24,7 +24,7 @@ class MatrixSocialDilemma(gym.Env):
     VIEWPORT_W = 400
     VIEWPORT_H = 400
 
-    def __init__(self, payout_matrix, max_steps_per_epi=1, reward_randomness=0.1):
+    def __init__(self, payout_matrix, max_steps_per_epi=20, reward_randomness=0.1):
         """
         :arg payout_matrix: numpy 2x2 array. Along dim 0 (rows), action of
         current agent change. Along dim 1 (col), action of the
@@ -157,7 +157,7 @@ class IteratedMatchingPennies(MatrixSocialDilemma):
     A two-agent vectorized environment for the Matching Pennies game.
     """
 
-    def __init__(self, max_steps_per_epi=1, reward_randomness=0.1):
+    def __init__(self, max_steps_per_epi=20, reward_randomness=0.1):
         payout_mat = np.array([[1, -1],
                                [-1, 1]])
         super().__init__(payout_mat, max_steps_per_epi, reward_randomness)
@@ -168,7 +168,7 @@ class IteratedPrisonersDilemma(MatrixSocialDilemma):
     A two-agent vectorized environment for the Prisoner's Dilemma game.
     """
 
-    def __init__(self, max_steps_per_epi=1, reward_randomness=0.1):
+    def __init__(self, max_steps_per_epi=20, reward_randomness=0.1):
         payout_mat = np.array([[-1., -3],
                                [0., -2.]])
         super().__init__(payout_mat, max_steps_per_epi, reward_randomness)
@@ -180,7 +180,7 @@ class IteratedStagHunt(MatrixSocialDilemma):
     A two-agent vectorized environment for the Stag Hunt game.
     """
 
-    def __init__(self, max_steps_per_epi=1, reward_randomness=0.1):
+    def __init__(self, max_steps_per_epi=20, reward_randomness=0.1):
         payout_mat = np.array([[3, 0],
                                [2, 1]])
         super().__init__(payout_mat, max_steps_per_epi, reward_randomness)
@@ -191,7 +191,7 @@ class IteratedChicken(MatrixSocialDilemma):
     A two-agent vectorized environment for the Chicken game.
     """
 
-    def __init__(self, max_steps_per_epi=1, reward_randomness=0.1):
+    def __init__(self, max_steps_per_epi=20, reward_randomness=0.1):
         payout_mat = np.array([[0, -1],
                                [1, -10]])
         super().__init__(payout_mat, max_steps_per_epi, reward_randomness)
